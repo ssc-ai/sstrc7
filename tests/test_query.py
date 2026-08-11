@@ -181,6 +181,55 @@ def test_query_by_los_filter_center_changes_magnitudes(synthetic_catalog):
     assert not np.allclose(plain, tuned)
 
 
+@pytest.mark.parametrize(
+    "angles,expected",
+    [
+        ([179.5, 180.5], (179.5, 180.5)),  # ordinary span
+        ([359.5, 0.5], (359.5, 0.5)),  # wraps through zero
+        ([359.519, 0.769, 0.02], (359.519, 0.769)),
+        ([42.0], (42.0, 42.0)),  # degenerate
+        ([10.0, 20.0, 30.0], (10.0, 30.0)),
+        ([350.0, 355.0, 5.0, 10.0], (350.0, 10.0)),
+    ],
+)
+def test_enclosing_ra_arc(angles, expected):
+    from sstrc7.query import _enclosing_ra_arc
+
+    assert _enclosing_ra_arc(np.array(angles)) == pytest.approx(expected)
+
+
+def test_field_bounds_span_the_field_even_across_ra_zero(synthetic_catalog):
+    """Regression: min/max over corners describes the wrong arc at the seam.
+
+    Taking min and max of the projected corner RAs puts them on opposite sides
+    of RA = 0, so the "box" covered the sky the field does *not* occupy and the
+    query silently dropped most of the stars.
+    """
+    from sstrc7.query import _field_bounds
+
+    fov, pad = 0.5, 1.0
+    expected_span = fov * (1.0 + 2.0 * pad)
+
+    for ra in (0.02, 359.98, 0.0, 180.0, 90.0):
+        corner_min, corner_max, _ = _field_bounds(
+            512, 512, fov / 512, fov / 512, ra, 0.0, 0.0, pad, "center"
+        )
+        span = (corner_max[0] - corner_min[0]) % 360.0
+        assert span == pytest.approx(expected_span, rel=0.1), f"ra={ra} span={span}"
+
+
+def test_query_by_los_keeps_stars_on_both_sides_of_ra_zero(tmp_path):
+    """A field centred on RA = 0 must return the stars either side of the seam."""
+    ras = [359.4, 359.7, 0.0, 0.3, 0.6]
+    directory = write_catalog(
+        tmp_path / "seam", make_records(ras, [0.0] * len(ras), seed=5)
+    )
+    rows, cols, mag = Catalog(directory).query_by_los(
+        512, 512, 4.0, 4.0, 0.0, 0.0, pad_mult=0.0
+    )
+    assert len(rows) == len(ras)
+
+
 def test_query_by_los_empty_field_returns_empty_arrays(tmp_path):
     directory = write_catalog(tmp_path / "one", make_records([10.0], [80.0]))
     rows, cols, mag = Catalog(directory).query_by_los(64, 64, 1.0, 1.0, 200.0, -40.0)

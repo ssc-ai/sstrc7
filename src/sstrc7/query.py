@@ -450,10 +450,9 @@ def _field_bounds(
         centre[:, 1] -= height / 2.0
 
     world = w.wcs_pix2world(pixels, 1)
-    centre_ra, _ = w.wcs_pix2world(centre, 1)[0]
 
-    ra_min, dec_min = np.min(world, axis=0)
-    ra_max, dec_max = np.max(world, axis=0)
+    dec_min = float(np.min(world[:, 1]))
+    dec_max = float(np.max(world[:, 1]))
 
     north = w.wcs_world2pix([[0, 89.99999]], 1)[0]
     south = w.wcs_world2pix([[0, -89.99999]], 1)[0]
@@ -462,7 +461,24 @@ def _field_bounds(
         return [0.0, dec_min], [360.0, 90.0], w
     if not np.any(np.isnan(south)) and 0 < south[0] < width and 0 < south[1] < height:
         return [0.0, -90.0], [360.0, dec_max], w
-    if centre_ra > ra_max or centre_ra < ra_min or (ra_max - ra_min) > 180:
-        # The field straddles RA = 0, so the extremes are the wrapped bounds.
-        return [ra_max, dec_min], [ra_min, dec_max], w
+
+    ra_min, ra_max = _enclosing_ra_arc(world[:, 0])
     return [ra_min, dec_min], [ra_max, dec_max], w
+
+
+def _enclosing_ra_arc(ra_deg: np.ndarray) -> tuple[float, float]:
+    """Smallest arc of right ascension containing every given angle.
+
+    Taking min and max is wrong whenever a field straddles RA = 0: the extremes
+    then sit on opposite sides of the seam and describe the arc the field does
+    *not* occupy. Instead, find the widest empty gap between neighbouring
+    angles; the field is everything else. The returned pair may wrap, meaning
+    ``ra_min > ra_max``, which is what :meth:`Catalog.query_box` expects.
+    """
+    angles = np.sort(np.asarray(ra_deg, dtype=np.float64) % 360.0)
+    if angles.size == 1:
+        return float(angles[0]), float(angles[0])
+
+    gaps = np.diff(np.concatenate([angles, angles[:1] + 360.0]))
+    widest = int(np.argmax(gaps))
+    return float(angles[(widest + 1) % angles.size]), float(angles[widest])

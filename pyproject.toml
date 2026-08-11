@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sstrc7"
-version = "1.0.0"
+version = "1.0.1"
 description = "Download and query the SSTRC7 all-sky star catalog (294 million stars, 18 photometric bands)"
 readme = "README.md"
 license = { file = "LICENSE" }

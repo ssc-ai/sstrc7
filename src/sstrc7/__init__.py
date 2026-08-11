@@ -38,7 +38,7 @@ from .manifest import load as load_manifest
 from .paths import DEFAULT_PATH, PATH_ENV_VARS, catalog_path
 from .query import Catalog, CatalogNotFound, StarField
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __all__ = [
     "BAND_CENTERS_NM",
