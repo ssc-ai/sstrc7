@@ -27,6 +27,7 @@ print(stars.visual)                           # best broadband magnitude per sta
 
 - [What is in the catalog](#what-is-in-the-catalog)
 - [Photometric bands](#photometric-bands)
+- [Depth and completeness](#depth-and-completeness)
 - [Installing and downloading](#installing-and-downloading)
 - [Where the data lives](#where-the-data-lives)
 - [Querying](#querying)
@@ -44,7 +45,8 @@ print(stars.visual)                           # best broadband magnitude per sta
 | Stars | 294,222,203 |
 | Sky coverage | all-sky, δ = −90° to +90° |
 | Photometric bands | 18, from 440 nm to 22 µm |
-| Astrometric precision | positions stored to 1 mas |
+| Depth | hard cut at Gaia **G = 18.0**, 97% complete below it |
+| Astrometric precision | positions stored to 1 mas, agreeing with Gaia to 0.003″ |
 | Extracted size | 17.65 GB across 1801 files |
 | Download size | ~7.2 GB |
 
@@ -100,6 +102,34 @@ stars.at_wavelength(650.0)    # interpolate each star's SED across its own bands
 ```
 
 `at_wavelength` interpolates linearly in wavelength across whichever bands that particular star has, and clamps to the nearest measured band outside that span — so it returns a usable number for every star with at least one measurement, which is all of them.
+
+## Depth and completeness
+
+Every SSTRC7 star comes from Gaia, so a Gaia catalog complete to G = 21 is an exact reference: a Gaia star inside a field that SSTRC7 lacks is a real incompleteness, not a cross-catalog mismatch. Comparing against a local Gaia mirror of 1.74 billion stars over 20 fields of radius 0.4°, sampled evenly across galactic latitude (91,177 SSTRC7 stars against 502,967 Gaia stars):
+
+**SSTRC7 does not fade out — it stops.** There is a hard cut at G = 18.0, above which the catalog holds no stars at all. Below the cut it is 97.1% complete.
+
+![SSTRC7 completeness against Gaia](https://raw.githubusercontent.com/ssc-ai/sstrc7/main/docs/depth-completeness.png)
+
+Plotted as raw counts, the two catalogs track each other bin for bin until SSTRC7 ends. Gaia keeps going for three more magnitudes, which is most of its stars — this is why SSTRC7 holds 294 million rather than billions.
+
+![Magnitude distribution](https://raw.githubusercontent.com/ssc-ai/sstrc7/main/docs/depth-magnitude-distribution.png)
+
+Completeness holds up in crowded fields: the galactic plane loses under two points against the poles.
+
+![Completeness by galactic latitude](https://raw.githubusercontent.com/ssc-ai/sstrc7/main/docs/depth-by-latitude.png)
+
+Cross-matching the two catalogs position by position shows the stored values are Gaia's, carried through faithfully:
+
+| Check | Result |
+|---|---|
+| SSTRC7 stars with a Gaia counterpart within 1″ | 99.99% (91,172 of 91,177) |
+| Median position difference | 0.0031″ (99th percentile 0.019″) |
+| Median `Gaia_G` difference | +0.017 mag (MAD 0.005) |
+
+**What this means in practice.** Treat G = 18 as the catalog's horizon: for star-field simulation, astrometric solving, or photometric calibration down to 18th magnitude, SSTRC7 is essentially a complete Gaia sample with 17 extra bands attached. Past 18, it is empty — if you need fainter stars, you need a different catalog.
+
+Reproduce any of this with `tools/analyze_depth.py`, which takes a catalog path and a Gaia mirror and writes `docs/depth.json` alongside these plots.
 
 ## Installing and downloading
 
@@ -269,7 +299,7 @@ To regenerate the release assets from a local catalog — or to verify that the 
 
 ## Provenance and citation
 
-SSTRC7 is a merged reference catalog: every star comes from Gaia, cross-matched against 2MASS, AllWISE, Tycho-Gaia, Hipparcos, Henry Draper, the Bright Star Catalog, and Landolt standards, as recorded per star in `source_flags`. The magnitude columns outside Gaia's own three bands are populated for the subsets listed in the coverage table above.
+SSTRC7 is a merged reference catalog: every star comes from Gaia, selected to G < 18 and cross-matched against 2MASS, AllWISE, Tycho-Gaia, Hipparcos, Henry Draper, the Bright Star Catalog, and Landolt standards, as recorded per star in `source_flags`. The magnitude columns outside Gaia's own three bands are populated for the subsets listed in the coverage table above. The Gaia selection, the completeness below it, and the fidelity of the stored positions and magnitudes are all measured in [Depth and completeness](#depth-and-completeness) — they are not claims taken from documentation.
 
 > **Note for downstream users:** this repository distributes the catalog data; it is not its origin. If you publish work using SSTRC7, cite the catalog's original source. The reference epoch of the positions is not recorded in the binary format — proper motions are provided so you can propagate positions once you have established the epoch your application needs.
 
