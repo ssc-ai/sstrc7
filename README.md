@@ -134,10 +134,10 @@ Reproduce any of this with `tools/analyze_depth.py`, which takes a catalog path 
 ## Installing and downloading
 
 ```bash
-pip install sstrc7              # core: numpy only
-pip install "sstrc7[wcs]"       # adds astropy, needed for query_by_los
-pip install "sstrc7[progress]"  # adds tqdm for a nicer progress bar
+pip install sstrc7
 ```
+
+There are no optional extras — numpy, astropy, and tqdm all come with it, and everything in this README works from that one install.
 
 Then either:
 
@@ -206,7 +206,7 @@ rows, cols, mag = sstrc7.query_by_los(
 )
 ```
 
-Projects the catalog through a gnomonic (TAN) WCS onto a sensor and returns pixel row/column and magnitude. Requires astropy.
+Projects the catalog through a gnomonic (TAN) WCS onto a sensor and returns pixel row/column and magnitude.
 
 ### What a query returns
 

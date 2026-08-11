@@ -132,10 +132,7 @@ def query_by_los(
     filter_ob: bool = True,
     filter_center: float | None = None,
 ):
-    """Project stars onto a focal plane. Returns ``(rows, cols, magnitudes)``.
-
-    Requires astropy (``pip install sstrc7[wcs]``).
-    """
+    """Project stars onto a focal plane. Returns ``(rows, cols, magnitudes)``."""
     return open_catalog(path).query_by_los(
         height,
         width,

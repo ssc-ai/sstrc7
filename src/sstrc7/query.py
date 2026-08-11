@@ -333,8 +333,6 @@ class Catalog:
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Project the catalog onto a focal plane for a given line of sight.
 
-        Requires astropy (``pip install sstrc7[wcs]``).
-
         Args:
             height, width: sensor size in pixels.
             y_fov, x_fov: field of view in degrees.
@@ -396,6 +394,9 @@ def _unit_vector(ra_deg: np.ndarray, dec_deg: np.ndarray) -> np.ndarray:
 
 
 def _build_wcs(y_ifov: float, x_ifov: float, ra: float, dec: float, rot: float):
+    # Imported here rather than at module scope: astropy is a required
+    # dependency, but importing it costs about a second, and the cone and box
+    # queries never need it.
     from astropy import wcs as astropy_wcs
 
     w = astropy_wcs.WCS(naxis=2)

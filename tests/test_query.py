@@ -162,9 +162,6 @@ def test_stars_outside_any_written_zone_are_not_invented(tmp_path):
     assert len(catalog.query_box(0.0, 360.0, -90.0, 0.0)) == 0
 
 
-astropy = pytest.importorskip("astropy", reason="query_by_los needs astropy")
-
-
 def test_query_by_los_projects_onto_the_focal_plane(synthetic_catalog):
     catalog = Catalog(synthetic_catalog)
     rows, cols, mag = catalog.query_by_los(512, 512, 20.0, 20.0, 100.0, 10.0, pad_mult=1.0)
