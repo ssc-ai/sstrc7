@@ -1,7 +1,24 @@
 {
- "schema": 1,
+ "schema": 2,
  "repo": "ssc-ai/sstrc7",
- "tag": "v1.0.0",
+ "tag": "v1.0.0-zones-0000-0899",
+ "releases": [
+  {
+   "tag": "v1.0.0-zones-0000-0899",
+   "zones": [
+    0,
+    899
+   ],
+   "index": true
+  },
+  {
+   "tag": "v1.0.0-zones-0900-1799",
+   "zones": [
+    900,
+    1799
+   ]
+  }
+ ],
  "record_size": 60,
  "n_stars": 294222203,
  "index": {

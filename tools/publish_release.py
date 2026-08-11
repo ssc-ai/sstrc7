@@ -48,6 +48,9 @@ from sstrc7._format import (  # noqa: E402
 from sstrc7._progress import human_bytes  # noqa: E402
 
 DEFAULT_REPO = "ssc-ai/sstrc7"
+#: GitHub rejects the 1001st asset on a release with a 422 "file_count" error,
+#: so the 1801 catalog files are spread over more than one release.
+ASSETS_PER_RELEASE = 1000
 MANIFEST_PATH = Path(__file__).resolve().parent.parent / "src" / "sstrc7" / "manifest.json"
 API = "https://api.github.com"
 UPLOADS = "https://uploads.github.com"
@@ -79,6 +82,28 @@ def _encode_one(catalog: Path, staging: Path, zone_id: int) -> dict:
         "asset_size": len(blob),
         "asset_sha256": hashlib.sha256(blob).hexdigest(),
     }
+
+
+def _plan_releases(base_tag: str, n_zones: int) -> list[dict]:
+    """Split the zones across as many releases as the 1000-asset limit needs.
+
+    The first release also carries the index file, so it gets one fewer zone.
+    """
+    count = -(-(n_zones + 1) // ASSETS_PER_RELEASE)  # +1 for the index file
+    per_release = -(-n_zones // count)  # split evenly, rather than filling to
+    # the cap, so a release is never one asset away from rejecting an upload
+
+    releases: list[dict] = []
+    for first in range(0, n_zones, per_release):
+        last = min(first + per_release, n_zones) - 1
+        releases.append(
+            {
+                "tag": f"{base_tag}-zones-{first:04d}-{last:04d}",
+                "zones": [first, last],
+                **({"index": True} if not releases else {}),
+            }
+        )
+    return releases
 
 
 def cmd_build(args: argparse.Namespace) -> int:
@@ -133,10 +158,12 @@ def cmd_build(args: argparse.Namespace) -> int:
                 f"zone {zone_id}: file is {entry['size']} bytes but the index implies {expected}"
             )
 
+    releases = _plan_releases(args.tag, N_DEC_ZONES)
     manifest = {
-        "schema": 1,
+        "schema": 2,
         "repo": args.repo,
-        "tag": args.tag,
+        "tag": releases[0]["tag"],
+        "releases": releases,
         "record_size": RECORD_SIZE,
         "n_stars": n_stars,
         "index": {
@@ -238,29 +265,59 @@ def _load_manifest(path: Path) -> dict:
     return json.loads(path.read_text())
 
 
-def _asset_plan(manifest: dict) -> list[tuple[str, int]]:
-    """Return (asset name, expected size) for every file in the release."""
-    plan = [(INDEX_FILENAME, manifest["index"]["size"])]
+def _asset_plan(manifest: dict) -> dict[str, list[tuple[str, int]]]:
+    """Group (asset name, expected size) by the release tag that holds it."""
+    releases = manifest["releases"]
+    plan: dict[str, list[tuple[str, int]]] = {r["tag"]: [] for r in releases}
+
+    index_tag = next(r["tag"] for r in releases if r.get("index"))
+    plan[index_tag].append((INDEX_FILENAME, manifest["index"]["size"]))
+
     for zone_id, zone in enumerate(manifest["zones"]):
-        plan.append((zone_asset_name(zone_id), zone["asset_size"]))
+        for release in releases:
+            first, last = release["zones"]
+            if first <= zone_id <= last:
+                plan[release["tag"]].append((zone_asset_name(zone_id), zone["asset_size"]))
+                break
+        else:
+            raise SystemExit(f"no release covers zone {zone_id}")
+
+    for tag, assets in plan.items():
+        if len(assets) > ASSETS_PER_RELEASE:
+            raise SystemExit(
+                f"{tag} would hold {len(assets)} assets; GitHub allows "
+                f"{ASSETS_PER_RELEASE} per release"
+            )
     return plan
 
 
-def cmd_upload(args: argparse.Namespace) -> int:
-    manifest = _load_manifest(Path(args.manifest))
-    repo, tag = manifest["repo"], manifest["tag"]
+def _upload_one_release(
+    args: argparse.Namespace,
+    token: str,
+    repo: str,
+    tag: str,
+    assets: list[tuple[str, int]],
+) -> list[str]:
+    """Upload one release's assets. Returns a list of failure descriptions."""
     staging = Path(args.staging)
-    token = _token()
 
     release = _release(token, repo, tag, create=True)
     release_id = release["id"]
-    print(f"release {tag} id={release_id} ({release['html_url']})")
+    print(f"\nrelease {tag} id={release_id} ({release['html_url']})")
 
     have = _existing_assets(token, repo, release_id)
-    plan = _asset_plan(manifest)
+    expected = {name for name, _ in assets}
+
+    # Assets from an earlier, differently-planned run would count against the
+    # 1000 limit and shadow nothing useful, so drop them.
+    for name, asset in have.items():
+        if name not in expected:
+            print(f"  removing stray asset {name}", flush=True)
+            _api("DELETE", f"{API}/repos/{repo}/releases/assets/{asset['id']}", token)
+    have = {k: v for k, v in have.items() if k in expected}
 
     todo = []
-    for name, size in plan:
+    for name, size in assets:
         current = have.get(name)
         if current is None:
             todo.append((name, size))
@@ -270,11 +327,11 @@ def cmd_upload(args: argparse.Namespace) -> int:
             todo.append((name, size))
 
     if not todo:
-        print(f"all {len(plan)} assets already uploaded")
-        return 0
+        print(f"  all {len(assets)} assets already uploaded")
+        return []
 
     total = sum(size for _, size in todo)
-    print(f"uploading {len(todo)} of {len(plan)} assets ({human_bytes(total)})")
+    print(f"  uploading {len(todo)} of {len(assets)} assets ({human_bytes(total)})")
 
     sent = 0
     failed: list[str] = []
@@ -290,8 +347,15 @@ def cmd_upload(args: argparse.Namespace) -> int:
                 _api("POST", url, token, blob, "application/octet-stream")
                 return None
             except HTTPError as exc:
-                if exc.code == 422:  # already exists, from a racing retry
-                    return None
+                if exc.code == 422:
+                    # 422 covers both "this name already exists" (harmless, a
+                    # racing retry) and "file_count limited to 1000 assets per
+                    # release" (fatal). Treating them alike silently drops real
+                    # failures, so read the body and tell them apart.
+                    body = exc.read().decode(errors="replace")
+                    if "already_exists" in body or "already exists" in body:
+                        return None
+                    return f"{name}: HTTP 422 {body[:200]}"
                 if attempt == 4:
                     return f"{name}: HTTP {exc.code} {exc.reason}"
             except OSError as exc:
@@ -316,6 +380,17 @@ def cmd_upload(args: argparse.Namespace) -> int:
                 flush=True,
             )
     print()
+    return failed
+
+
+def cmd_upload(args: argparse.Namespace) -> int:
+    manifest = _load_manifest(Path(args.manifest))
+    repo = manifest["repo"]
+    token = _token()
+
+    failed: list[str] = []
+    for tag, assets in _asset_plan(manifest).items():
+        failed += _upload_one_release(args, token, repo, tag, assets)
 
     for error in failed[:20]:
         print(f"  FAILED {error}", file=sys.stderr)
@@ -327,22 +402,32 @@ def cmd_upload(args: argparse.Namespace) -> int:
 
 def cmd_verify(args: argparse.Namespace) -> int:
     manifest = _load_manifest(Path(args.manifest))
-    repo, tag = manifest["repo"], manifest["tag"]
+    repo = manifest["repo"]
     token = _token()
 
-    release = _release(token, repo, tag, create=False)
-    have = _existing_assets(token, repo, release["id"])
-
     missing, wrong = [], []
-    for name, size in _asset_plan(manifest):
-        asset = have.get(name)
-        if asset is None:
-            missing.append(name)
-        elif asset["size"] != size or asset["state"] != "uploaded":
-            wrong.append(f"{name}: {asset['size']} bytes state={asset['state']}, expected {size}")
+    total = 0
 
-    total = len(manifest["zones"]) + 1
-    print(f"{total - len(missing) - len(wrong)}/{total} assets correct on {tag}")
+    for tag, assets in _asset_plan(manifest).items():
+        total += len(assets)
+        release = _release(token, repo, tag, create=False)
+        have = _existing_assets(token, repo, release["id"])
+
+        tag_missing, tag_wrong = [], []
+        for name, size in assets:
+            asset = have.get(name)
+            if asset is None:
+                tag_missing.append(name)
+            elif asset["size"] != size or asset["state"] != "uploaded":
+                tag_wrong.append(
+                    f"{name}: {asset['size']} bytes state={asset['state']}, expected {size}"
+                )
+        good = len(assets) - len(tag_missing) - len(tag_wrong)
+        print(f"{good}/{len(assets)} assets correct on {tag}")
+        missing += tag_missing
+        wrong += tag_wrong
+
+    print(f"{total - len(missing) - len(wrong)}/{total} assets correct overall")
     for name in missing[:20]:
         print(f"  missing: {name}")
     for entry in wrong[:20]:

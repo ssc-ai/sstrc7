@@ -55,6 +55,7 @@ def release(tmp_path):
                 asset=asset_name,
                 asset_size=len(blob),
                 asset_sha256=hashlib.sha256(blob).hexdigest(),
+                tag="v0",
             )
         )
 

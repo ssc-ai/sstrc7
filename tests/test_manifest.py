@@ -53,8 +53,33 @@ def test_totals_match_the_published_catalog(manifest):
     assert manifest.download_size < manifest.total_size / 2
 
 
-def test_asset_urls_point_at_the_release(manifest):
-    entry = manifest.files[900]
-    url = manifest.asset_url(entry)
-    assert url.startswith(f"https://github.com/{manifest.repo}/releases/download/{manifest.tag}/")
-    assert url.endswith(entry.asset)
+def test_asset_urls_point_at_the_release_holding_that_asset(manifest):
+    for entry in (manifest.files[0], manifest.files[900], manifest.files[-1]):
+        url = manifest.asset_url(entry)
+        assert url == (
+            f"https://github.com/{manifest.repo}/releases/download/{entry.tag}/{entry.asset}"
+        )
+
+
+def test_assets_are_split_to_respect_githubs_thousand_per_release_limit(manifest):
+    """GitHub rejects the 1001st asset on a release, and there are 1801 files."""
+    per_tag: dict[str, int] = {}
+    for entry in manifest.files:
+        per_tag[entry.tag] = per_tag.get(entry.tag, 0) + 1
+
+    assert len(per_tag) >= 2
+    assert sum(per_tag.values()) == len(manifest.files)
+    for tag, count in per_tag.items():
+        assert count <= 1000, f"{tag} holds {count} assets"
+
+
+def test_every_file_has_a_release(manifest):
+    assert all(entry.tag for entry in manifest.files)
+    assert set(manifest.tags) == {entry.tag for entry in manifest.files}
+
+
+def test_zones_are_assigned_to_releases_contiguously(manifest):
+    """Each release covers one unbroken zone range, so the split is legible."""
+    zones = [e for e in manifest.files if e.name != INDEX_FILENAME]
+    boundaries = [i for i in range(1, len(zones)) if zones[i].tag != zones[i - 1].tag]
+    assert len(boundaries) == len(manifest.tags) - 1
