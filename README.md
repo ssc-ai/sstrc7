@@ -25,25 +25,25 @@ print(stars.visual)                           # best broadband magnitude per sta
 
 ## Contents
 
-1. [sstrc7](#sstrc7)
-   1. [Contents](#contents)
-   2. [What is in the catalog](#what-is-in-the-catalog)
-   3. [Photometric bands](#photometric-bands)
-   4. [Depth and completeness](#depth-and-completeness)
-   5. [Installing and downloading](#installing-and-downloading)
-   6. [Where the data lives](#where-the-data-lives)
-   7. [Querying](#querying)
-      1. [Cone](#cone)
-      2. [Box](#box)
-      3. [Focal plane](#focal-plane)
-      4. [What a query returns](#what-a-query-returns)
-      5. [Reusing a catalog handle](#reusing-a-catalog-handle)
-   8. [Command line](#command-line)
-   9. [Binary format](#binary-format)
-   10. [How the release is distributed](#how-the-release-is-distributed)
-   11. [Provenance and citation](#provenance-and-citation)
-   12. [Development](#development)
-   13. [License](#license)
+- [sstrc7](#sstrc7)
+  - [Contents](#contents)
+  - [What is in the catalog](#what-is-in-the-catalog)
+  - [Photometric bands](#photometric-bands)
+  - [Depth and completeness](#depth-and-completeness)
+  - [Installing and downloading](#installing-and-downloading)
+  - [Where the data lives](#where-the-data-lives)
+  - [Querying](#querying)
+    - [Cone](#cone)
+    - [Box](#box)
+    - [Focal plane](#focal-plane)
+    - [What a query returns](#what-a-query-returns)
+    - [Reusing a catalog handle](#reusing-a-catalog-handle)
+  - [Command line](#command-line)
+  - [Binary format](#binary-format)
+  - [How the release is distributed](#how-the-release-is-distributed)
+  - [Provenance and citation](#provenance-and-citation)
+  - [Development](#development)
+  - [License](#license)
 
 ---
 
@@ -82,26 +82,26 @@ Stars are also flagged as photometric standards (80.2%), variable (0.21%), exten
 
 Bands are stored in this order, and `field.mag` is an `(N, 18)` array in the same order. A band with no measurement for a given star is `NaN` — never a sentinel you have to remember to filter.
 
-|    # | Band        | λ (nm) | Coverage | Median mag |
-| ---: | ----------- | -----: | -------: | ---------: |
-|    0 | `Gaia_G`    |    600 |   100.0% |      16.88 |
-|    1 | `Gaia_BP`   |    500 |   100.0% |      17.52 |
-|    2 | `Gaia_RP`   |    800 |   100.0% |      16.06 |
-|    3 | `Johnson_B` |    440 |    20.5% |      16.24 |
-|    4 | `Johnson_V` |    548 |    20.5% |      15.33 |
-|    5 | `Johnson_R` |    700 |    62.3% |      16.64 |
-|    6 | `Johnson_I` |    900 |    62.3% |      15.97 |
-|    7 | `Sloan_g`   |    477 |    62.4% |      17.66 |
-|    8 | `Sloan_r`   |    622 |    62.5% |      16.86 |
-|    9 | `Sloan_i`   |    762 |    62.6% |      16.42 |
-|   10 | `Sloan_z`   |    913 |    62.5% |      16.18 |
-|   11 | `2MASS_J`   |   1235 |    94.5% |      14.92 |
-|   12 | `2MASS_H`   |   1662 |    94.5% |      14.40 |
-|   13 | `2MASS_Ks`  |   2159 |    94.5% |      14.25 |
-|   14 | `WISE_W1`   |   3400 |    61.0% |      14.00 |
-|   15 | `WISE_W2`   |   4600 |    61.0% |      14.07 |
-|   16 | `WISE_W3`   |  12000 |    61.0% |      12.40 |
-|   17 | `WISE_W4`   |  22000 |    61.0% |       8.96 |
+|   # | Band        | λ (nm) | Coverage | Median mag |
+| --: | ----------- | -----: | -------: | ---------: |
+|   0 | `Gaia_G`    |    600 |   100.0% |      16.88 |
+|   1 | `Gaia_BP`   |    500 |   100.0% |      17.52 |
+|   2 | `Gaia_RP`   |    800 |   100.0% |      16.06 |
+|   3 | `Johnson_B` |    440 |    20.5% |      16.24 |
+|   4 | `Johnson_V` |    548 |    20.5% |      15.33 |
+|   5 | `Johnson_R` |    700 |    62.3% |      16.64 |
+|   6 | `Johnson_I` |    900 |    62.3% |      15.97 |
+|   7 | `Sloan_g`   |    477 |    62.4% |      17.66 |
+|   8 | `Sloan_r`   |    622 |    62.5% |      16.86 |
+|   9 | `Sloan_i`   |    762 |    62.6% |      16.42 |
+|  10 | `Sloan_z`   |    913 |    62.5% |      16.18 |
+|  11 | `2MASS_J`   |   1235 |    94.5% |      14.92 |
+|  12 | `2MASS_H`   |   1662 |    94.5% |      14.40 |
+|  13 | `2MASS_Ks`  |   2159 |    94.5% |      14.25 |
+|  14 | `WISE_W1`   |   3400 |    61.0% |      14.00 |
+|  15 | `WISE_W2`   |   4600 |    61.0% |      14.07 |
+|  16 | `WISE_W3`   |  12000 |    61.0% |      12.40 |
+|  17 | `WISE_W4`   |  22000 |    61.0% |       8.96 |
 
 Because coverage is uneven, there are two ways to get one magnitude per star:
 
@@ -265,7 +265,7 @@ s0000.cat        one file per declination zone, 60-byte records
 s1799.cat
 ```
 
-**Zones.** Declination is divided into 1800 zones of 0.1°, indexed by south polar distance, so zone *z* covers `dec ∈ [z/10 − 90, (z+1)/10 − 90)`. Zone 900 is the strip just north of the equator. Within each zone, records are sorted by right ascension.
+**Zones.** Declination is divided into 1800 zones of 0.1°, indexed by south polar distance, so zone _z_ covers `dec ∈ [z/10 − 90, (z+1)/10 − 90)`. Zone 900 is the strip just north of the equator. Within each zone, records are sorted by right ascension.
 
 **Index.** `sstrc.acc` holds, for each of the 1800 declination zones and each of 60 six-degree-wide RA sub-zones, a `(record offset, record count)` pair. That lets a query seek straight to the records it needs instead of scanning a file. The summed counts reproduce every zone file's record count exactly.
 
@@ -298,7 +298,7 @@ The data is published as [GitHub release assets](https://github.com/ssc-ai/sstrc
 
 GitHub allows at most 1000 assets on a release, so the files are spread across two, split by declination zone: `v1.0.0-zones-0000-0899` (which also carries the index) and `v1.0.0-zones-0900-1799`. The manifest records which release holds each file, so this is invisible to `get()`.
 
-Each zone is stored as `.catz`: the record block is transposed to a column-major byte layout and then compressed with `lzma`. Grouping byte *i* of every record together gives the compressor long runs of near-identical values across the 18 magnitude columns, which roughly halves the size — a representative equatorial zone goes from 10.40 MB to 5.15 MB, where plain gzip only reaches 7.24 MB. The transform is exactly invertible, and `get()` verifies the SHA-256 of both the compressed asset and the extracted file, so what lands on your disk is byte-identical to the source catalog.
+Each zone is stored as `.catz`: the record block is transposed to a column-major byte layout and then compressed with `lzma`. Grouping byte _i_ of every record together gives the compressor long runs of near-identical values across the 18 magnitude columns, which roughly halves the size — a representative equatorial zone goes from 10.40 MB to 5.15 MB, where plain gzip only reaches 7.24 MB. The transform is exactly invertible, and `get()` verifies the SHA-256 of both the compressed asset and the extracted file, so what lands on your disk is byte-identical to the source catalog.
 
 Decoding uses `lzma` from the Python standard library plus numpy, so no third-party compression library is involved.
 

@@ -7,6 +7,7 @@ dist/
 .ruff_cache/
 .venv/
 venv/
+.vscode/
 
 # Catalog data and staged release assets never belong in the repo.
 *.cat
